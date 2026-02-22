@@ -1,0 +1,94 @@
+{
+  "sites": [
+    {
+      "name": "Bareen",
+      "url": "https://checkout.bareen.dk",
+      "logo": "https://cdn.sanity.io/images/h5k8yy9d/production/340d9eb3161c499ec3e3c7bf9d920d8de981bfe7-118x27.svg",
+      "delay": 5000
+    },
+    {
+      "name": "Klarborg",
+      "url": "https://etlyklarborg.dk",
+      "logo": "https://cdn.sanity.io/images/h5k8yy9d/production/340d9eb3161c499ec3e3c7bf9d920d8de981bfe7-118x27.svg",
+      "delay": 5000
+    },
+    {
+      "name": "Vibholm",
+      "url": "https://vibholm.dk",
+      "logo": "https://cdn.sanity.io/images/h5k8yy9d/production/340d9eb3161c499ec3e3c7bf9d920d8de981bfe7-118x27.svg",
+      "delay": 5000
+    }
+  ],
+  "servers": [
+    {
+      "name": "MicMac",
+      "settings": {
+        "username": "Shopify Monitor",
+        "avatar": "https://avatars.githubusercontent.com/u/71085002",
+        "color": null,
+        "sizes": true,
+        "thumbnail": true,
+        "image": false,
+        "footer_text": "subreme/shopify-monitor",
+        "footer_image": "https://avatars.githubusercontent.com/u/71085002",
+        "timestamp": true,
+        "minimum": 0,
+        "keywords": null
+      },
+      "channels": [
+        {
+          "name": "#monitor",
+          "url": "https://discord.com/api/webhooks/1462395886322581717/mlq2JoaJ3dbh1iJAaJwkoKFKY-CoBdd-haBYnM7i_dEW7XmYD5tDanV2AIqiK3DsBnvw",
+          "sites": [
+            {
+              "name": "Bareen",
+              "events": [
+                {
+                  "restock": true
+                },
+                {
+                  "settings": {
+                    "color": "red"
+                  },
+                  "password_up": true
+                },
+                {
+                  "settings": {
+                    "color": "#2ecc71"
+                  },
+                  "password_down": true
+                }
+              ]
+            },
+            {
+              "name": "Klarborg",
+              "events": [
+                {
+                  "restock": true
+                },
+                {
+                  "settings": {
+                    "color": "red"
+                  },
+                  "password_up": true
+                },
+                {
+                  "settings": {
+                    "color": "#2ecc71"
+                  },
+                  "password_down": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "#other-monitors",
+          "url": "https://discord.com/api/webhooks/1464352907909398633/MVZaW7kWp6Z9RgpVPLVx5Lv5ym-gC9pORtWsSBYjdYXmySfCjQp9ssv_qEQLhzQgIFR2",
+          "sites": []
+        }
+      ]
+    }
+  ],
+  "proxies": []
+}

@@ -29,8 +29,16 @@ spec:
         - name: shopify-monitor
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/config.json
+              subPath: config.json
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "shopify-monitor.fullname" . }}-config
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
