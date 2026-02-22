@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: micmacha/home
   tag: shopify_monitor
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: regcred
