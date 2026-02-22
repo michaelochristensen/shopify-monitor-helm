@@ -1,0 +1,19 @@
+replicaCount: 1
+
+image:
+  repository: micmacha/home
+  tag: shopify_monitor
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

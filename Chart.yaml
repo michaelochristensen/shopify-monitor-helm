@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shopify-monitor
+description: Helm chart for Shopify monitor workload
+type: application
+version: 0.1.0
+appVersion: "shopify_monitor"
