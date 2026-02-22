@@ -5,6 +5,9 @@ image:
   tag: shopify_monitor
   pullPolicy: IfNotPresent
 
+imagePullSecrets:
+  - name: regcred
+
 nameOverride: ""
 fullnameOverride: ""
 
