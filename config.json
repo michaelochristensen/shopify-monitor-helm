@@ -4,7 +4,7 @@
       "name": "Bareen",
       "url": "https://checkout.bareen.dk",
       "logo": "https://cdn.sanity.io/images/h5k8yy9d/production/340d9eb3161c499ec3e3c7bf9d920d8de981bfe7-118x27.svg",
-      "delay": 5000
+      "delay": 1000
     },
     {
       "name": "Klarborg",
