@@ -20,3 +20,20 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# Dedicated restock-watcher for smukshop.dk (Venue Manager CMP, not Shopify).
+smukshopWatch:
+  enabled: true
+  image: curlimages/curl:8.11.0
+  intervalSeconds: 10
+  url: https://smukshop.dk/armbaand/partout27
+  itemTitle: "Partoutarmbånd til Smukfest 2027"
+  itemPrice: "3.895,00 kr."
+  webhook: https://discord.com/api/webhooks/1462395886322581717/mlq2JoaJ3dbh1iJAaJwkoKFKY-CoBdd-haBYnM7i_dEW7XmYD5tDanV2AIqiK3DsBnvw
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
