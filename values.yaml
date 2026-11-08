@@ -17,7 +17,13 @@ resources: {}
 
 nodeSelector: {}
 
-tolerations: []
+tolerations:
+  # The worker node (talos-byh-le9) flaps in and out of NotReady, which leaves
+  # pods Pending. Tolerating the control-plane taint lets the monitors run
+  # there when the worker is unavailable.
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
 
 affinity: {}
 
@@ -29,6 +35,24 @@ smukshopWatch:
   url: https://smukshop.dk/armbaand/partout27
   itemTitle: "Partoutarmbånd til Smukfest 2027"
   itemPrice: "3.895,00 kr."
+  webhook: https://discord.com/api/webhooks/1462395886322581717/mlq2JoaJ3dbh1iJAaJwkoKFKY-CoBdd-haBYnM7i_dEW7XmYD5tDanV2AIqiK3DsBnvw
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# Watcher for a single proshop.dk product: alerts when the product page goes
+# live (it currently redirects to the category page) and when it is in stock.
+proshopWatch:
+  enabled: true
+  image: curlimages/curl:8.11.0
+  intervalSeconds: 20
+  url: https://www.proshop.dk/Pokemon/Pokemon-Ultra-Premium-Collection-30th-Celebration-assorted/3519996
+  productId: "3519996"
+  itemTitle: "Pokemon Ultra Premium Collection 30th Celebration"
   webhook: https://discord.com/api/webhooks/1462395886322581717/mlq2JoaJ3dbh1iJAaJwkoKFKY-CoBdd-haBYnM7i_dEW7XmYD5tDanV2AIqiK3DsBnvw
   resources:
     requests:
