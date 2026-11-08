@@ -18,9 +18,9 @@ resources: {}
 nodeSelector: {}
 
 tolerations:
-  # The worker node (talos-byh-le9) flaps in and out of NotReady, which leaves
+  # The worker node (talos-byh-le9) keeps dropping into NotReady, leaving new
   # pods Pending. Tolerating the control-plane taint lets the monitors run
-  # there when the worker is unavailable.
+  # there until the worker is healthy again.
   - key: node-role.kubernetes.io/control-plane
     operator: Exists
     effect: NoSchedule
@@ -53,6 +53,9 @@ proshopWatch:
   url: https://www.proshop.dk/Pokemon/Pokemon-Ultra-Premium-Collection-30th-Celebration-assorted/3519996
   productId: "3519996"
   itemTitle: "Pokemon Ultra Premium Collection 30th Celebration"
+  # Proshop blocks plain HTTP clients with a Cloudflare challenge; r.jina.ai
+  # renders the page in a real browser. Set to "" to fetch the URL directly.
+  reader: "https://r.jina.ai/"
   webhook: https://discord.com/api/webhooks/1462395886322581717/mlq2JoaJ3dbh1iJAaJwkoKFKY-CoBdd-haBYnM7i_dEW7XmYD5tDanV2AIqiK3DsBnvw
   resources:
     requests:

@@ -50,6 +50,8 @@ spec:
               value: {{ .Values.proshopWatch.intervalSeconds | quote }}
             - name: ITEM_TITLE
               value: {{ .Values.proshopWatch.itemTitle | quote }}
+            - name: READER
+              value: {{ .Values.proshopWatch.reader | quote }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
