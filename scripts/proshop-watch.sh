@@ -10,11 +10,19 @@
 # der "Varenummer: **<id>**" paa siden. Foer da redirecter URL'en til en
 # kategoriside (Jina viser det som "Final URL:").
 #
+# "Paa lager" accepteres KUN som hovedstatus, dvs. "På lager" efterfulgt af en
+# pris ("På lager 1.749,00 kr."). Tekster som "På lager, kan afhentes" i
+# Pick-up Point-listen eller "15+ stk. på lager" gaelder ikke.
+#
 # Tilstande:
 #   offline              - produktsiden findes ikke endnu
 #   online|InStock       - paa lager
 #   online|PreOrder      - kan forudbestilles ("Bestilt: forventet paa lager ...")
 #   online|OutOfStock    - udsolgt
+#   online|ukendt        - produktsiden findes, men status kan ikke laeses
+#
+# En ny tilstand skal ses to gange i traek, foer der sendes alert. Det undgaar
+# falske alarmer naar Proshop/Jina skifter mellem produktside og redirect.
 #
 # Der sendes alert:
 #   - foerste gang produktsiden gaar fra offline til online
@@ -80,12 +88,13 @@ post() {
     --data-binary "$1" "$HOOK" 2>/dev/null
 }
 
-# Udskriver "offline||||" eller "online|<status>|<pris>|<forventet-dato>"
+# Linje 1: "offline||||" eller "online|<status>|<pris>|<forventet-dato>"
+# Linje 2: bevis (uddrag af siden omkring status-teksten)
 fetch_state() {
   out=$(curl -sS --compressed -m 45 -A "$UA" -H 'X-No-Cache: true' \
-    -w '\n%{http_code}' "${READER}${URL}" 2>/dev/null) || { echo 'error||||'; return; }
+    -w '\n%{http_code}' "${READER}${URL}" 2>/dev/null) || { printf 'error||||\n\n'; return; }
   code=$(printf '%s' "$out" | tail -n 1)
-  [ "$code" = "200" ] || { echo "http${code}||||"; return; }
+  [ "$code" = "200" ] || { printf 'http%s||||\n\n' "$code"; return; }
   body=$(printf '%s' "$out" | sed '$d' | tr -d '\r')
   flat=$(printf '%s' "$body" | tr '\n' ' ')
 
@@ -93,30 +102,54 @@ fetch_state() {
   final=$(printf '%s' "$flat" | sed -n 's/.*Final URL:[[:space:]]*\([^ ]*\).*/\1/p')
 
   if [ -n "$final" ] && [ "$final" != "$URL" ]; then
-    echo 'offline||||'; return
+    printf 'offline||||\n\n'; return
   fi
   if ! printf '%s' "$flat" | grep -qF "Varenummer: **${PRODUCT_ID}**"; then
-    echo 'ukendt||||'; return
+    printf 'ukendt||||\n\n'; return
   fi
 
   note=$(printf '%s' "$flat" | grep -oE 'Bestilt: forventet p[^#]{0,40}' | head -n 1)
   note=$(printf '%s' "$note" | sed 's/^.*lager //; s/[[:space:]]*$//')
-  price=$(printf '%s' "$flat" | grep -oE '[0-9]{1,3}(\.[0-9]{3})*,[0-9]{2} kr\.' | head -n 1)
 
-  if printf '%s' "$flat" | grep -qF 'Bestilt: forventet p'; then
-    echo "online|PreOrder|${price}|${note}"
-  elif printf '%s' "$flat" | grep -qF 'Udsolgt'; then
-    echo "online|OutOfStock|${price}|${note}"
-  elif printf '%s' "$flat" | grep -qF 'På lager'; then
-    echo "online|InStock|${price}|${note}"
+  # Varens egen status staar lige foer "Lagerstatus i vores Pick-up Points".
+  # Tekster fra kategorisiden eller "tilbehoer"-lister (som ogsaa indeholder
+  # "På lager" og priser) ligger uden for dette vindue og ignoreres.
+  anchor='Lagerstatus i vores Pick-up Points'
+  if printf '%s' "$flat" | grep -qF "$anchor"; then
+    region=$(printf '%s' "${flat%%$anchor*}" | tail -c 1200)
   else
-    echo "online|ukendt|${price}|${note}"
+    region=""
+  fi
+
+  # Pris: den foerste pris foer fragtlinjen ("Billigste fragt ... 39,00 kr.")
+  pricetext=${region%%Billigste fragt*}
+  price=$(printf '%s' "$pricetext" | grep -oE '[0-9]{1,3}(\.[0-9]{3})*,[0-9]{2} kr\.' | head -n 1)
+
+  ev=$(printf '%s' "$region" | grep -oE '.{0,50}(På lager|Bestilt: forventet p|Udsolgt|Ikke på lager).{0,70}' | head -n 1)
+
+  if [ -z "$region" ]; then
+    printf 'online|ukendt|%s|%s\n(ingen statusblok paa siden)\n' "$price" "$note"
+  elif printf '%s' "$region" | grep -qF 'Bestilt: forventet p'; then
+    printf 'online|PreOrder|%s|%s\n%s\n' "$price" "$note" "$ev"
+  elif printf '%s' "$region" | grep -qF 'Ikke på lager'; then
+    printf 'online|OutOfStock|%s|%s\n%s\n' "$price" "$note" "$ev"
+  elif printf '%s' "$region" | grep -qF 'Udsolgt'; then
+    printf 'online|OutOfStock|%s|%s\n%s\n' "$price" "$note" "$ev"
+  elif printf '%s' "$region" | grep -qF 'stk. på lager'; then
+    printf 'online|InStock|%s|%s\n%s\n' "$price" "$note" "$ev"
+  elif printf '%s' "$region" | grep -qF 'På lager'; then
+    printf 'online|InStock|%s|%s\n%s\n' "$price" "$note" "$ev"
+  else
+    printf 'online|ukendt|%s|%s\n%s\n' "$price" "$note" "$ev"
   fi
 }
 
-state=""
+candidate=""
+confirmed=""
 last_alert=0
+last_online_alert=0
 fail=0
+ONLINE_COOLDOWN=3600
 
 # Test-tilstand: vis blot hvad siden aktuelt rapporterer
 if [ "${DETECT_ONLY:-0}" = "1" ]; then
@@ -132,7 +165,10 @@ fi
 log "starter: $URL (varenr. ${PRODUCT_ID}, hvert ${INTERVAL}. sekund)"
 
 while true; do
-  new=$(fetch_state)
+  raw=$(fetch_state)
+  new=$(printf '%s' "$raw" | head -n 1)
+  ev=$(printf '%s' "$raw" | tail -n 1)
+
   now=$(date +%s)
 
   oldIFS=$IFS; IFS='|'; set -- $new; IFS=$oldIFS
@@ -141,7 +177,9 @@ while true; do
   case "$kind" in
     offline)
       fail=0
-      [ "${state%%|*}" != "offline" ] && log "produktsiden er ikke online endnu"
+      [ "${confirmed%%|*}" != "offline" ] && log "produktsiden er ikke online endnu"
+      candidate=""
+      confirmed="offline"
       ;;
     online)
       fail=0
@@ -149,30 +187,34 @@ while true; do
         InStock) status="på lager" ;;
         PreOrder) status="kan forudbestilles" ;;
         OutOfStock) status="udsolgt" ;;
-        *) status="$avail" ;;
+        *) status="ikke oplyst" ;;
       esac
 
-      prev_kind=${state%%|*}
-      prev_rest=${state#*|}
-      prev_avail=${prev_rest%%|*}
+      cand="online|${avail}"
 
-      if [ "$prev_kind" != "online" ]; then
-        if [ "$avail" = "InStock" ]; then
-          resp=$(post "$(payload stock "på lager" "$price" "$note")")
-          log "PA LAGER - alert sendt (HTTP $resp)"
-        else
-          resp=$(post "$(payload online "$status" "$price" "$note")")
-          log "ONLINE ($avail) - alert sendt (HTTP $resp)"
+      if [ "$candidate" = "$cand" ]; then
+        # set to gange i traek -> godkendt
+        if [ "$confirmed" != "$cand" ]; then
+          if [ "$avail" = "InStock" ]; then
+            resp=$(post "$(payload stock "på lager" "$price" "$note")")
+            log "PA LAGER - alert sendt (HTTP $resp) [pris=${price:-?}] $ev"
+            last_alert=$now
+          elif [ $((now - last_online_alert)) -ge $ONLINE_COOLDOWN ]; then
+            resp=$(post "$(payload online "$status" "$price" "$note")")
+            log "ONLINE ($avail) - alert sendt (HTTP $resp) [pris=${price:-?}] $ev"
+            last_online_alert=$now
+          else
+            log "ONLINE ($avail) igen - alert undertrykt (cooldown)"
+          fi
+          confirmed="$cand"
+        elif [ "$avail" = "InStock" ] && [ $((now - last_alert)) -ge $REMIND_AFTER ]; then
+          resp=$(post "$(payload remind "på lager" "$price" "$note")")
+          log "stadig pa lager - pamindelse sendt (HTTP $resp) [pris=${price:-?}]"
+          last_alert=$now
         fi
-        last_alert=$now
-      elif [ "$avail" = "InStock" ] && [ "$prev_avail" != "InStock" ]; then
-        resp=$(post "$(payload stock "på lager" "$price" "$note")")
-        last_alert=$now
-        log "NU PA LAGER - alert sendt (HTTP $resp)"
-      elif [ "$avail" = "InStock" ] && [ $((now - last_alert)) -ge $REMIND_AFTER ]; then
-        resp=$(post "$(payload remind "på lager" "$price" "$note")")
-        last_alert=$now
-        log "stadig pa lager - pamindelse sendt (HTTP $resp)"
+      else
+        candidate="$cand"
+        log "ser $avail - afventer bekræftelse [pris=${price:-?}] $ev"
       fi
       ;;
     *)
@@ -183,6 +225,5 @@ while true; do
       ;;
   esac
 
-  state="$new"
   sleep "$INTERVAL"
 done

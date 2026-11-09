@@ -52,11 +52,20 @@ Detection, from the rendered page:
 |---|---|
 | offline | page redirects (the reader reports a `Final URL` different from the product URL) |
 | online | `Varenummer: **<id>**` is present |
-| in stock | `På lager` |
-| pre-order | `Bestilt: forventet på lager <date>` |
+| in stock | `15+ stk. på lager` or `På lager` **in the product's own status block** |
+| pre-order | `Bestilt: forventet på lager <date>` in the same block |
+| sold out | `Ikke på lager` / `Udsolgt` in the same block |
 
-Alerts ping `@here`; a reminder follows every 30 minutes while the product is in
-stock. Settings live under `proshopWatch` in `values.yaml`.
+The status block is the text immediately before `Lagerstatus i vores Pick-up
+Points`. This matters because when the product is not visible Proshop serves a
+category page (and product pages carry accessory lists) that also contain
+`På lager` and prices for *other* items — matching those produced false
+"på lager" alerts.
+
+A new state must be seen twice in a row before an alert is sent, and repeated
+"online" alerts are rate-limited to one per hour. Alerts ping `@here`; a
+reminder follows every 30 minutes while the product is in stock. Settings live
+under `proshopWatch` in `values.yaml`.
 
 ## Applying manifests with Danish characters
 
