@@ -38,8 +38,10 @@ across lines. All settings live under `smukshopWatch` in `values.yaml`
 
 ## proshop.dk product watcher
 
-`templates/proshop-watch.yaml` watches one Proshop product and alerts when the
-product page goes live and when the item is in stock.
+`templates/proshop-watch.yaml` watches a list of Proshop products
+(`proshopWatch.targets`) and alerts when a product page goes live and when the
+item is in stock. Every target gets its own ConfigMap and Deployment, named
+`<fullname>-proshop-watch-<productId>`.
 
 Proshop sits behind a Cloudflare "managed challenge", so plain HTTP clients get
 `403 Just a moment...`. The watcher therefore reads the page through the
@@ -55,6 +57,7 @@ Detection, from the rendered page:
 | in stock | `15+ stk. på lager` or `På lager` **in the product's own status block** |
 | pre-order | `Bestilt: forventet på lager <date>` in the same block |
 | sold out | `Ikke på lager` / `Udsolgt` in the same block |
+| not for sale yet | no status block, but `Modtag notifikation` is present (no alert) |
 
 The status block is the text immediately before `Lagerstatus i vores Pick-up
 Points`. This matters because when the product is not visible Proshop serves a
@@ -65,7 +68,9 @@ category page (and product pages carry accessory lists) that also contain
 A new state must be seen twice in a row before an alert is sent, and repeated
 "online" alerts are rate-limited to one per hour. Alerts ping `@here`; a
 reminder follows every 30 minutes while the product is in stock. Settings live
-under `proshopWatch` in `values.yaml`.
+under `proshopWatch` in `values.yaml`; add a product under
+`proshopWatch.targets` with `productId`, `url` and `itemTitle`, then render and
+apply again.
 
 ## Applying manifests with Danish characters
 

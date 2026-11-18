@@ -44,15 +44,13 @@ smukshopWatch:
       cpu: 100m
       memory: 64Mi
 
-# Watcher for a single proshop.dk product: alerts when the product page goes
-# live (it currently redirects to the category page) and when it is in stock.
+# Watcher for proshop.dk products: alerts when a product page goes live (it
+# redirects to the category page until it is published) and when it is in
+# stock. Each entry in `targets` gets its own Deployment.
 proshopWatch:
   enabled: true
   image: curlimages/curl:8.11.0
   intervalSeconds: 20
-  url: https://www.proshop.dk/Pokemon/Pokemon-Ultra-Premium-Collection-30th-Celebration-assorted/3519996
-  productId: "3519996"
-  itemTitle: "Pokemon Ultra Premium Collection 30th Celebration"
   # Proshop blocks plain HTTP clients with a Cloudflare challenge; r.jina.ai
   # renders the page in a real browser. Set to "" to fetch the URL directly.
   reader: "https://r.jina.ai/"
@@ -64,3 +62,10 @@ proshopWatch:
     limits:
       cpu: 100m
       memory: 64Mi
+  targets:
+    - productId: "3519996"
+      url: https://www.proshop.dk/Pokemon/Pokemon-Ultra-Premium-Collection-30th-Celebration-assorted/3519996
+      itemTitle: "Pokemon Ultra Premium Collection 30th Celebration"
+    - productId: "3519997"
+      url: https://www.proshop.dk/Pokemon/Pokemon-Ditto-Premium-Collection-30th-Celebration/3519997
+      itemTitle: "Pokemon Ditto Premium Collection 30th Celebration"

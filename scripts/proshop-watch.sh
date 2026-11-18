@@ -19,6 +19,7 @@
 #   online|InStock       - paa lager
 #   online|PreOrder      - kan forudbestilles ("Bestilt: forventet paa lager ...")
 #   online|OutOfStock    - udsolgt
+#   online|IkkeTilSalg   - siden findes, men viser "Modtag notifikation" (ikke til salg)
 #   online|ukendt        - produktsiden findes, men status kan ikke laeses
 #
 # En ny tilstand skal ses to gange i traek, foer der sendes alert. Det undgaar
@@ -128,6 +129,10 @@ fetch_state() {
   ev=$(printf '%s' "$region" | grep -oE '.{0,50}(På lager|Bestilt: forventet p|Udsolgt|Ikke på lager).{0,70}' | head -n 1)
 
   if [ -z "$region" ]; then
+    if printf '%s' "$flat" | grep -qF 'Modtag notifikation'; then
+      printf 'online|IkkeTilSalg|%s|%s\n(siden viser "Modtag notifikation" - endnu ikke til salg)\n' "$price" "$note"
+      return
+    fi
     printf 'online|ukendt|%s|%s\n(ingen statusblok paa siden)\n' "$price" "$note"
   elif printf '%s' "$region" | grep -qF 'Bestilt: forventet p'; then
     printf 'online|PreOrder|%s|%s\n%s\n' "$price" "$note" "$ev"
@@ -183,38 +188,48 @@ while true; do
       ;;
     online)
       fail=0
-      case "$avail" in
-        InStock) status="på lager" ;;
-        PreOrder) status="kan forudbestilles" ;;
-        OutOfStock) status="udsolgt" ;;
-        *) status="ikke oplyst" ;;
-      esac
-
-      cand="online|${avail}"
-
-      if [ "$candidate" = "$cand" ]; then
-        # set to gange i traek -> godkendt
-        if [ "$confirmed" != "$cand" ]; then
-          if [ "$avail" = "InStock" ]; then
-            resp=$(post "$(payload stock "på lager" "$price" "$note")")
-            log "PA LAGER - alert sendt (HTTP $resp) [pris=${price:-?}] $ev"
-            last_alert=$now
-          elif [ $((now - last_online_alert)) -ge $ONLINE_COOLDOWN ]; then
-            resp=$(post "$(payload online "$status" "$price" "$note")")
-            log "ONLINE ($avail) - alert sendt (HTTP $resp) [pris=${price:-?}] $ev"
-            last_online_alert=$now
-          else
-            log "ONLINE ($avail) igen - alert undertrykt (cooldown)"
-          fi
-          confirmed="$cand"
-        elif [ "$avail" = "InStock" ] && [ $((now - last_alert)) -ge $REMIND_AFTER ]; then
-          resp=$(post "$(payload remind "på lager" "$price" "$note")")
-          log "stadig pa lager - pamindelse sendt (HTTP $resp) [pris=${price:-?}]"
-          last_alert=$now
+      if [ "$avail" = "IkkeTilSalg" ]; then
+        # Siden findes, men varen kan endnu ikke koebes (Proshop viser
+        # "Modtag notifikation"). Ingen alert - vi venter paa lagerblokken.
+        if [ "$confirmed" != "online|IkkeTilSalg" ]; then
+          log "siden findes, men varen kan ikke bestilles endnu"
         fi
+        candidate=""
+        confirmed="online|IkkeTilSalg"
       else
-        candidate="$cand"
-        log "ser $avail - afventer bekræftelse [pris=${price:-?}] $ev"
+        case "$avail" in
+          InStock) status="på lager" ;;
+          PreOrder) status="kan forudbestilles" ;;
+          OutOfStock) status="udsolgt" ;;
+          *) status="ikke oplyst" ;;
+        esac
+
+        cand="online|${avail}"
+
+        if [ "$candidate" = "$cand" ]; then
+          # set to gange i traek -> godkendt
+          if [ "$confirmed" != "$cand" ]; then
+            if [ "$avail" = "InStock" ]; then
+              resp=$(post "$(payload stock "på lager" "$price" "$note")")
+              log "PA LAGER - alert sendt (HTTP $resp) [pris=${price:-?}] $ev"
+              last_alert=$now
+            elif [ $((now - last_online_alert)) -ge $ONLINE_COOLDOWN ]; then
+              resp=$(post "$(payload online "$status" "$price" "$note")")
+              log "ONLINE ($avail) - alert sendt (HTTP $resp) [pris=${price:-?}] $ev"
+              last_online_alert=$now
+            else
+              log "ONLINE ($avail) igen - alert undertrykt (cooldown)"
+            fi
+            confirmed="$cand"
+          elif [ "$avail" = "InStock" ] && [ $((now - last_alert)) -ge $REMIND_AFTER ]; then
+            resp=$(post "$(payload remind "på lager" "$price" "$note")")
+            log "stadig pa lager - pamindelse sendt (HTTP $resp) [pris=${price:-?}]"
+            last_alert=$now
+          fi
+        else
+          candidate="$cand"
+          log "ser $avail - afventer bekræftelse [pris=${price:-?}] $ev"
+        fi
       fi
       ;;
     *)
